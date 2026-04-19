@@ -41,9 +41,6 @@ app-example
 /ios
 /android
 
-# nativewind
-nativewind-env.d.ts
-
 .cursor/
 .claude/
 .vscode/.react/
