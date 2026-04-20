@@ -1,27 +1,35 @@
 import ListHeading from '@/components/ListHeading';
 import SubscriptionCard from '@/components/SubscriptionCard';
 import UpcomingSubscriptionCard from '@/components/UpcomingSubscriptionCard';
+import UserAvatar from '@/components/UserAvatar';
 import {
     HOME_BALANCE,
     HOME_SUBSCRIPTIONS,
-    HOME_USER,
     UPCOMING_SUBSCRIPTIONS,
 } from '@/constants/data';
 import { icons } from '@/constants/icons';
-import images from '@/constants/images';
 import { formatCurrency } from '@/lib/utils';
+import { useUser } from '@clerk/expo';
 import dayjs from 'dayjs';
 import { styled } from 'nativewind';
 import { useState } from 'react';
-import { FlatList, Image, Text, View } from 'react-native';
+import { FlatList, Image, Pressable, Text, View } from 'react-native';
 import { SafeAreaView as RNSafeAreaView } from 'react-native-safe-area-context';
 
 const SafeAreaView = styled(RNSafeAreaView);
 
 export default function App() {
+  const { isLoaded, user } = useUser();
   const [expandedSubscriptionId, setExpandedSubscriptionId] = useState<
     string | null
   >(null);
+
+  const displayName =
+    isLoaded && user
+      ? [user.firstName, user.lastName].filter(Boolean).join(' ') ||
+        user.emailAddresses?.[0]?.emailAddress ||
+        user.id
+      : '—';
 
   return (
     <SafeAreaView className="flex-1 bg-background p-5">
@@ -29,12 +37,27 @@ export default function App() {
         ListHeaderComponent={() => (
           <>
             <View className="home-header">
-              <View className="home-user">
-                <Image source={images.avatar} className="home-avatar" />
-                <Text className="home-user-name">{HOME_USER.name}</Text>
+              <View className="home-user flex-1 min-w-0">
+                <UserAvatar
+                  uri={isLoaded ? user?.imageUrl : null}
+                  fallbackText={displayName}
+                  className="home-avatar"
+                />
+                <Text
+                  className="home-user-name flex-1 min-w-0"
+                  numberOfLines={1}
+                >
+                  {displayName}
+                </Text>
               </View>
 
-              <Image source={icons.add} className="home-add-icon" />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Add"
+                hitSlop={10}
+              >
+                <Image source={icons.add} className="home-add-icon" />
+              </Pressable>
             </View>
 
             <View className="home-balance-card">

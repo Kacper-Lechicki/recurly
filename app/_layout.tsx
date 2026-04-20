@@ -1,9 +1,37 @@
+import { theme } from '@/constants/theme';
+import { ClerkProvider, useAuth } from '@clerk/expo';
+import { resourceCache } from '@clerk/expo/resource-cache';
+import { tokenCache } from '@clerk/expo/token-cache';
 import { useFonts } from 'expo-font';
 import { SplashScreen, Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import * as SystemUI from 'expo-system-ui';
+import * as WebBrowser from 'expo-web-browser';
 import { useEffect } from 'react';
 import './global.css';
 
 SplashScreen.preventAutoHideAsync();
+WebBrowser.maybeCompleteAuthSession();
+
+const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
+if (!publishableKey) {
+  throw new Error('Missing EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY');
+}
+const publishableKeyStrict: string = publishableKey;
+
+function RootNavigator() {
+  useAuth();
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="subscriptions/[id]" />
+      <Stack.Screen name="onboarding" />
+      <Stack.Screen name="session-task" />
+    </Stack>
+  );
+}
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -21,9 +49,23 @@ export default function RootLayout() {
     }
   }, [fontsLoaded]);
 
+  useEffect(() => {
+    // Ensure Android system bar contrast on light background.
+    void SystemUI.setBackgroundColorAsync(theme.colors.background);
+  }, []);
+
   if (!fontsLoaded) {
     return null;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <ClerkProvider
+      publishableKey={publishableKeyStrict}
+      tokenCache={tokenCache}
+      __experimental_resourceCache={resourceCache}
+    >
+      <RootNavigator />
+      <StatusBar style="dark" backgroundColor={theme.colors.background} />
+    </ClerkProvider>
+  );
 }
