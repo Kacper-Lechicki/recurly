@@ -1,9 +1,15 @@
-import { AuthPrimaryButton } from '@/components/auth/AuthButtons';
+import {
+    AuthPrimaryButton,
+    AuthSecondaryButton,
+} from '@/components/auth/AuthButtons';
 import AuthScreenShell from '@/components/auth/AuthScreenShell';
 import { useAuth } from '@clerk/expo';
 import { Redirect, router, useLocalSearchParams } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import React from 'react';
 import { Text, View } from 'react-native';
+
+const CLERK_DOCS_HOME = 'https://clerk.com/docs';
 
 export default function SessionTask() {
   const { task } = useLocalSearchParams<{ task?: string }>();
@@ -18,14 +24,21 @@ export default function SessionTask() {
     router.replace('/sign-in');
   };
 
+  const onOpenClerkDocs = () => {
+    void WebBrowser.openBrowserAsync(CLERK_DOCS_HOME);
+  };
+
   return (
     <AuthScreenShell
       header={
         <View className="auth-brand-block">
-          <Text className="auth-title">Action required</Text>
+          <Text className="auth-title">Finish signing in</Text>
           <Text className="auth-subtitle">
-            To keep your account secure, we need one more step before you can
-            continue.
+            Your organization enabled an extra security step (session task:{' '}
+            <Text className="font-sans-bold text-primary">
+              {task ?? 'unknown'}
+            </Text>
+            ). This build of Recurly does not yet run that step inside the app.
           </Text>
         </View>
       }
@@ -33,15 +46,17 @@ export default function SessionTask() {
       <View className="auth-card">
         <View className="auth-form">
           <Text className="auth-helper">
-            Task:{' '}
-            <Text className="font-sans-bold text-primary">
-              {task ?? 'unknown'}
-            </Text>
+            You can sign out and try another account, complete any pending steps
+            in the Clerk dashboard for your instance, or read Clerk’s session
+            task guide for what this requirement means.
           </Text>
-          <Text className="auth-helper">
-            This app doesn’t support completing this step yet. Please contact
-            support or sign out and try again.
-          </Text>
+
+          <AuthSecondaryButton
+            onPress={onOpenClerkDocs}
+            accessibilityLabel="Open Clerk session tasks documentation"
+          >
+            Open Clerk docs
+          </AuthSecondaryButton>
 
           <AuthPrimaryButton disabled={!isLoaded} onPress={onSignOut}>
             Sign out

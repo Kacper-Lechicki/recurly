@@ -2,27 +2,44 @@ import ListHeading from '@/components/ListHeading';
 import SubscriptionCard from '@/components/SubscriptionCard';
 import UpcomingSubscriptionCard from '@/components/UpcomingSubscriptionCard';
 import UserAvatar from '@/components/UserAvatar';
-import {
-    HOME_BALANCE,
-    HOME_SUBSCRIPTIONS,
-    UPCOMING_SUBSCRIPTIONS,
-} from '@/constants/data';
 import { icons } from '@/constants/icons';
+import { useAppStoreHydrated } from '@/lib/subscriptions/hooks';
+import {
+    getDistinctCurrencies,
+    getHomeBalance,
+    getUpcomingRenewals,
+    hasMultipleCurrencies,
+    toUiSubscription,
+} from '@/lib/subscriptions/selectors';
+import { useAppStore } from '@/lib/subscriptions/store';
 import { formatCurrency } from '@/lib/utils';
 import { useUser } from '@clerk/expo';
 import dayjs from 'dayjs';
+import { router } from 'expo-router';
 import { styled } from 'nativewind';
-import { useState } from 'react';
-import { FlatList, Image, Pressable, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import {
+    FlatList,
+    Image,
+    Pressable,
+    ScrollView,
+    Text,
+    View,
+} from 'react-native';
 import { SafeAreaView as RNSafeAreaView } from 'react-native-safe-area-context';
+import { useShallow } from 'zustand/react/shallow';
 
 const SafeAreaView = styled(RNSafeAreaView);
 
 export default function App() {
+  const hydrated = useAppStoreHydrated();
+  const { subscriptions, defaultCurrency } = useAppStore(
+    useShallow((s) => ({
+      subscriptions: s.subscriptions,
+      defaultCurrency: s.defaultCurrency,
+    })),
+  );
   const { isLoaded, user } = useUser();
-  const [expandedSubscriptionId, setExpandedSubscriptionId] = useState<
-    string | null
-  >(null);
 
   const displayName =
     isLoaded && user
@@ -30,6 +47,43 @@ export default function App() {
         user.emailAddresses?.[0]?.emailAddress ||
         user.id
       : '—';
+
+  const balance = useMemo(
+    () => getHomeBalance(subscriptions, defaultCurrency),
+    [subscriptions, defaultCurrency],
+  );
+
+  const upcoming = useMemo(
+    () => getUpcomingRenewals(subscriptions),
+    [subscriptions],
+  );
+
+  const homeList = useMemo(
+    () => subscriptions.map(toUiSubscription),
+    [subscriptions],
+  );
+
+  const multiCurrency = useMemo(
+    () => hasMultipleCurrencies(subscriptions),
+    [subscriptions],
+  );
+
+  const currencyListLabel = useMemo(() => {
+    if (!multiCurrency) return '';
+    return getDistinctCurrencies(subscriptions).join(', ');
+  }, [subscriptions, multiCurrency]);
+
+  const goToSubscriptionsTab = () => {
+    router.push('/(tabs)/subscriptions');
+  };
+
+  if (!hydrated) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-background">
+        <Text className="font-sans-medium text-muted-foreground">Loading…</Text>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-background p-5">
@@ -53,63 +107,81 @@ export default function App() {
 
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Add"
+                accessibilityLabel="Add subscription"
                 hitSlop={10}
+                onPress={() => router.push('/subscriptions/new')}
               >
                 <Image source={icons.add} className="home-add-icon" />
               </Pressable>
             </View>
 
             <View className="home-balance-card">
-              <Text className="home-balance-label">Balance</Text>
+              <Text className="home-balance-label">Monthly spend</Text>
 
               <View className="home-balance-row">
                 <Text className="home-balance-amount">
-                  {formatCurrency(HOME_BALANCE.amount)}
+                  {formatCurrency(balance.amount, balance.currency)}
                 </Text>
 
                 <Text className="home-balance-date">
-                  {dayjs(HOME_BALANCE.nextRenewalDate).format('MM/DD')}
+                  {balance.nextRenewalDate
+                    ? dayjs(balance.nextRenewalDate).format('MM/DD')
+                    : '—'}
                 </Text>
               </View>
             </View>
 
-            <View>
-              <ListHeading title="Upcoming" />
+            {multiCurrency ? (
+              <Text className="mb-1 text-sm font-sans-medium text-muted-foreground">
+                Totals use {defaultCurrency} only. You also have:{' '}
+                {currencyListLabel}.
+              </Text>
+            ) : null}
 
-              <FlatList
-                data={UPCOMING_SUBSCRIPTIONS}
-                renderItem={({ item }) => (
-                  <UpcomingSubscriptionCard {...item} />
-                )}
-                keyExtractor={(item) => item.id}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                ListEmptyComponent={
-                  <Text className="home-empty-state">
-                    No upcoming renewals yet.
-                  </Text>
-                }
+            <View>
+              <ListHeading
+                title="Upcoming"
+                onViewAllPress={goToSubscriptionsTab}
               />
+
+              {upcoming.length === 0 ? (
+                <Text className="home-empty-state">
+                  No upcoming renewals yet.
+                </Text>
+              ) : (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ gap: 12, paddingVertical: 4 }}
+                >
+                  {upcoming.map((item) => (
+                    <Pressable
+                      key={item.id}
+                      onPress={() => router.push(`/subscriptions/${item.id}`)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${item.name}, details`}
+                    >
+                      <UpcomingSubscriptionCard {...item} />
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              )}
             </View>
 
-            <ListHeading title="All Subscriptions" />
+            <ListHeading
+              title="All Subscriptions"
+              onViewAllPress={goToSubscriptionsTab}
+            />
           </>
         )}
-        data={HOME_SUBSCRIPTIONS}
+        data={homeList}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <SubscriptionCard
             {...item}
-            expanded={expandedSubscriptionId === item.id}
-            onPress={() =>
-              setExpandedSubscriptionId((currentId) =>
-                currentId === item.id ? null : item.id,
-              )
-            }
+            onPress={() => router.push(`/subscriptions/${item.id}`)}
           />
         )}
-        extraData={expandedSubscriptionId}
         ItemSeparatorComponent={() => <View className="h-4" />}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={

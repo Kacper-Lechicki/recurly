@@ -1,8 +1,10 @@
 import { tabs } from '@/constants/data';
 import { colors, components, spacing } from '@/constants/theme';
+import { useAppStoreHydrated } from '@/lib/subscriptions/hooks';
+import { useAppStore } from '@/lib/subscriptions/store';
 import { useAuth } from '@clerk/expo';
 import { Redirect, Tabs } from 'expo-router';
-import { Image, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Image, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const tabBar = components.tabBar;
@@ -43,13 +45,29 @@ const TabIcon = ({ focused, icon }: TabIconProps) => {
 
 const TabLayout = () => {
   const { isLoaded, isSignedIn } = useAuth();
+  const hydrated = useAppStoreHydrated();
+  const hasCompletedOnboarding = useAppStore((s) => s.hasCompletedOnboarding);
   const insets = useSafeAreaInsets();
   const gutter = tabBar.horizontalInset;
   const tabBarLeft = insets.left + gutter;
   const tabBarRight = insets.right + gutter;
 
-  if (!isLoaded) return null;
+  if (!isLoaded || !hydrated) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.background,
+        }}
+      >
+        <ActivityIndicator size="large" color={colors.accent} />
+      </View>
+    );
+  }
   if (!isSignedIn) return <Redirect href="/sign-in" />;
+  if (!hasCompletedOnboarding) return <Redirect href="/onboarding" />;
 
   return (
     <Tabs

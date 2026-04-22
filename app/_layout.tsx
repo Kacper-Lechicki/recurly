@@ -1,4 +1,5 @@
-import { theme } from '@/constants/theme';
+import { AppErrorBoundary } from '@/components/AppErrorBoundary';
+import { colors, theme } from '@/constants/theme';
 import { ClerkProvider, useAuth } from '@clerk/expo';
 import { resourceCache } from '@clerk/expo/resource-cache';
 import { tokenCache } from '@clerk/expo/token-cache';
@@ -8,6 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SystemUI from 'expo-system-ui';
 import * as WebBrowser from 'expo-web-browser';
 import { useEffect } from 'react';
+import { ActivityIndicator, View } from 'react-native';
 import './global.css';
 
 SplashScreen.preventAutoHideAsync();
@@ -24,9 +26,10 @@ function RootNavigator() {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
+      {/* Tabs live under (tabs); /subscriptions/* (new, [id], edit) is the sibling stack. */}
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="subscriptions/[id]" />
+      <Stack.Screen name="subscriptions" />
       <Stack.Screen name="onboarding" />
       <Stack.Screen name="session-task" />
     </Stack>
@@ -55,17 +58,30 @@ export default function RootLayout() {
   }, []);
 
   if (!fontsLoaded) {
-    return null;
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: colors.background,
+        }}
+      >
+        <ActivityIndicator size="large" color={colors.accent} />
+      </View>
+    );
   }
 
   return (
-    <ClerkProvider
-      publishableKey={publishableKeyStrict}
-      tokenCache={tokenCache}
-      __experimental_resourceCache={resourceCache}
-    >
-      <RootNavigator />
-      <StatusBar style="dark" backgroundColor={theme.colors.background} />
-    </ClerkProvider>
+    <AppErrorBoundary>
+      <ClerkProvider
+        publishableKey={publishableKeyStrict}
+        tokenCache={tokenCache}
+        __experimental_resourceCache={resourceCache}
+      >
+        <RootNavigator />
+        <StatusBar style="dark" backgroundColor={theme.colors.background} />
+      </ClerkProvider>
+    </AppErrorBoundary>
   );
 }
